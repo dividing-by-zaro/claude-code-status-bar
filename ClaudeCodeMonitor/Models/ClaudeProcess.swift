@@ -15,7 +15,9 @@ class ClaudeProcess: Identifiable {
     var previousSampleTime: Date = .now
 
     // State tracking
+    var previousState: ProcessState? = nil
     var stateChangeTime: Date = .now
+    var lastSoundTime: Date = .distantPast
     var cpuHistory: [Double] = []
 
     init(pid: pid_t, startTime: Date) {

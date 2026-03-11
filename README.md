@@ -10,6 +10,8 @@ A native macOS menu bar app that monitors Claude Code CLI processes in real-time
   - ✋ **Blocked** — Claude needs your approval for a command
   - ✅ **Done** — Claude finished, waiting for your next message
 - **JSONL-based state detection** — reads Claude's session logs for accurate state, no CPU guessing
+- **Subagent awareness** — detects active subagents (Explore, Plan, etc.) so the process stays "Running" during subagent work
+- **Sound notifications** — Morse ping when Claude needs approval, Glass chime when done (per-instance cooldown, silent on startup)
 - **Project name display** — shows the working directory name for each instance
 - **Auto-cleanup** — finished processes removed after 5 minutes
 - **500ms polling** — near-instant status updates

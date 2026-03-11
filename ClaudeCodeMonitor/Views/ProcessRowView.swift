@@ -21,11 +21,10 @@ struct ProcessRowView: View {
                 }
 
                 HStack {
-                    if process.state == .running {
-                        Text("CPU \(process.cpuUsage, specifier: "%.1f")%")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    } else if process.state == .blocked {
+                    Text("CPU \(process.cpuUsage, specifier: "%.1f")%")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if process.state == .blocked {
                         Text("Needs approval")
                             .font(.caption2)
                             .foregroundStyle(.orange)

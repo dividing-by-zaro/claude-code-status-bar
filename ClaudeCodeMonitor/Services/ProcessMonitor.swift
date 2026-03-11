@@ -1,3 +1,4 @@
+import AppKit
 import Darwin
 import Foundation
 
@@ -32,6 +33,7 @@ class ProcessMonitor {
         for process in processes where activePids.contains(process.pid) == false && process.state != .done && process.state != .error {
             process.state = .done
             process.stateChangeTime = .now
+            playStateChangeSound(for: process)
         }
 
         // Add newly discovered processes (skip if we already track this PID)
@@ -45,6 +47,7 @@ class ProcessMonitor {
         for process in processes where activePids.contains(process.pid) {
             updateMetrics(for: process)
             updateStateFromSession(process)
+            playStateChangeSound(for: process)
         }
 
         // Remove done processes older than 5 minutes
@@ -96,6 +99,9 @@ class ProcessMonitor {
                 process.state = .blocked
             }
 
+        case .agentRunning:
+            process.state = .running
+
         case .endTurn:
             process.state = .done
 
@@ -108,6 +114,7 @@ class ProcessMonitor {
         case userTurn(fileAge: TimeInterval)           // Last entry is role=user
         case assistantStreaming(fileAge: TimeInterval)  // stop_reason=null, possibly still streaming
         case toolUse(fileAge: TimeInterval)             // stop_reason=tool_use
+        case agentRunning                              // Subagent actively producing output
         case endTurn                                    // stop_reason=end_turn
         case other              // progress, system, file-history-snapshot, etc.
     }
@@ -152,9 +159,20 @@ class ProcessMonitor {
             return nil
         }
 
+        let lines = text.components(separatedBy: "\n").filter { !$0.isEmpty }
+
+        // Check if the last entry is an agent_progress — subagent actively working
+        if fileAge < 60, let lastLine = lines.last,
+           let lastData = lastLine.data(using: .utf8),
+           let lastJson = try? JSONSerialization.jsonObject(with: lastData) as? [String: Any],
+           lastJson["type"] as? String == "progress",
+           let progressData = lastJson["data"] as? [String: Any],
+           progressData["type"] as? String == "agent_progress" {
+            return .agentRunning
+        }
+
         // Walk backwards through lines to find last message entry
         // (skip progress, system, file-history-snapshot entries)
-        let lines = text.components(separatedBy: "\n").filter { !$0.isEmpty }
         for line in lines.reversed() {
             guard let jsonData = line.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
@@ -209,6 +227,42 @@ class ProcessMonitor {
             overallState = .blocked
         } else {
             overallState = .done
+        }
+    }
+
+    // MARK: - Sound Notifications
+
+    private let soundCooldown: TimeInterval = 3.0
+    private let morseSound = NSSound(named: "Morse")
+    private let glassSound = NSSound(named: "Glass")
+
+    private func playSound(_ sound: NSSound?) {
+        guard let sound, !sound.isPlaying else { return }
+        sound.play()
+    }
+
+    private func playStateChangeSound(for process: ClaudeProcess) {
+        let newState = process.state
+        guard let oldState = process.previousState, oldState != newState else {
+            // First time seeing this process — record state, don't play sound
+            process.previousState = newState
+            return
+        }
+        process.previousState = newState
+
+        guard Date.now.timeIntervalSince(process.lastSoundTime) >= soundCooldown else { return }
+
+        switch newState {
+        case .blocked:
+            playSound(morseSound)
+            process.lastSoundTime = .now
+        case .done:
+            if oldState == .running {
+                playSound(glassSound)
+                process.lastSoundTime = .now
+            }
+        default:
+            break
         }
     }
 
