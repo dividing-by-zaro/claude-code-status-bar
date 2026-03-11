@@ -19,14 +19,16 @@ Claude Code CLI installs as a symlink (`~/.local/bin/claude` → `~/.local/share
 
 State is determined by reading Claude's JSONL session logs in `~/.claude/projects/`. The process CWD (via `proc_pidinfo(PROC_PIDVNODEPATHINFO)`) maps to the project directory name (slashes replaced with dashes).
 
-The last meaningful entry in the most recent `.jsonl` file determines state:
-- `role=user` → **Running** (Claude is thinking/streaming)
-- `role=assistant, stop_reason=None` → **Running** (still streaming)
+The last meaningful entry (skipping `progress`, `system`, `file-history-snapshot`) in the most recent `.jsonl` file determines state, combined with file modification time (staleness):
+
+- `role=user` + file < 30s old → **Running** (Claude is thinking/streaming)
+- `role=assistant, stop_reason=null` + file < 30s old → **Running** (still streaming)
 - `role=assistant, stop_reason=tool_use` + file < 15s old → **Running** (tool executing)
 - `role=assistant, stop_reason=tool_use` + file > 15s old → **Blocked** (needs user approval)
 - `role=assistant, stop_reason=end_turn` → **Done** (waiting for next message)
+- Any stale entry (> 30s) with `role=user` or `stop_reason=null` → **Done** (stale partial message)
 
-Non-message entries (`progress`, `system`, `file-history-snapshot`) are skipped when scanning backwards.
+File staleness is critical: `stop_reason=null` can be a stale partial message from a finished session, not active streaming. The 30s threshold accounts for long streaming responses where the JSONL isn't written until the message completes.
 
 ## Key Files
 

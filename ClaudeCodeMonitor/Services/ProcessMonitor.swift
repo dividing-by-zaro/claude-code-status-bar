@@ -69,13 +69,23 @@ class ProcessMonitor {
         }
 
         switch sessionState {
-        case .userTurn:
-            // Last entry is a user message — Claude must be working on a response
-            process.state = .running
+        case .userTurn(let fileAge):
+            if fileAge < 30 {
+                // User just sent a message — Claude is working on a response
+                process.state = .running
+            } else {
+                // Stale user message — session is idle
+                process.state = .done
+            }
 
-        case .assistantStreaming:
-            // Partial assistant message (stop_reason=None) — still streaming
-            process.state = .running
+        case .assistantStreaming(let fileAge):
+            if fileAge < 30 {
+                // Partial assistant message, file still fresh — still streaming
+                process.state = .running
+            } else {
+                // Stale partial message — session is done
+                process.state = .done
+            }
 
         case .toolUse(let fileAge):
             if fileAge < 15 {
@@ -95,10 +105,10 @@ class ProcessMonitor {
     }
 
     private enum SessionState {
-        case userTurn           // Last entry is role=user
-        case assistantStreaming  // Last assistant message has stop_reason=None (still streaming)
-        case toolUse(fileAge: TimeInterval) // stop_reason=tool_use, with file staleness
-        case endTurn            // stop_reason=end_turn
+        case userTurn(fileAge: TimeInterval)           // Last entry is role=user
+        case assistantStreaming(fileAge: TimeInterval)  // stop_reason=null, possibly still streaming
+        case toolUse(fileAge: TimeInterval)             // stop_reason=tool_use
+        case endTurn                                    // stop_reason=end_turn
         case other              // progress, system, file-history-snapshot, etc.
     }
 
@@ -165,14 +175,13 @@ class ProcessMonitor {
             let role = message["role"] as? String ?? ""
 
             if role == "user" {
-                return .userTurn
+                return .userTurn(fileAge: fileAge)
             }
 
             if role == "assistant" {
                 let stopReason = message["stop_reason"]
                 if stopReason is NSNull || stopReason == nil {
-                    // stop_reason is null/None — still streaming
-                    return .assistantStreaming
+                    return .assistantStreaming(fileAge: fileAge)
                 }
                 let stop = stopReason as? String ?? ""
                 if stop == "tool_use" {
