@@ -1,0 +1,29 @@
+name: ClaudeCodeMonitor
+options:
+  bundleIdPrefix: com.isabelgwara
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+
+targets:
+  ClaudeCodeMonitor:
+    type: application
+    platform: macOS
+    sources:
+      - ClaudeCodeMonitor
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.isabelgwara.ClaudeCodeMonitor
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: ClaudeCodeMonitor/App/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleName: Claude Code Monitor
+        CFBundleDisplayName: Claude Code Monitor
+        LSApplicationCategoryType: public.app-category.utilities
